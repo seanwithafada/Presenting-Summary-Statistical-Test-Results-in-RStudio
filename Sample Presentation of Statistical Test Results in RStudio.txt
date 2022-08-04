@@ -1,0 +1,248 @@
+############################################# Required packages
+if(!require("readxl")){
+  install.packages("readxl",dependencies = TRUE)
+  library(readxl)
+}
+if(!require("dplyr")){
+  install.packages("dplyr",dependencies = TRUE)
+  library(dplyr)
+}
+if(!require("ggplot2")){
+  install.packages("ggplot2",dependencies = TRUE)
+  library(readxl)
+}
+if(!require("tidyr")){
+  install.packages("tidyr",dependencies = TRUE)
+  library(tidyr)
+}
+if(!require("psych")){
+  install.packages("psych",dependencies = TRUE)
+  library(psych)
+}
+if(!require("lsr")){
+  install.packages("lsr",dependencies = TRUE)
+  library(lsr)
+}
+if(!require("xlsx")){
+  install.packages("xlsx",dependencies = TRUE)
+  library(xlsx)
+}
+if(!require("rstatix")){
+  install.packages("rstatix",dependencies = TRUE)
+  library(rstatix)
+}
+if(!require("car")){
+  install.packages("car",dependencies = TRUE)
+  library(car)
+}
+
+####################################################### Import data
+library(readxl)
+Long <- # Diet study V2.xlsx and call Long.
+View(Long)
+
+####################################################### ONE-SAMPLE TESTS
+library(dplyr)
+Single<-filter(Long,Time=="Baseline")
+One<-select(Single,ID,Baseline=Triglyceride)
+View(One)
+
+############################################# Checking normality
+#################################### Graphical
+library(ggplot2)
+(g<-ggplot(One,aes(x="", y=Baseline))+stat_boxplot(geom = "errorbar")+
+    geom_boxplot()+labs(x = "", y = "Triglyceride (mg/dL)"))
+windows(20,10)
+(g1<-g+ scale_y_continuous(breaks=seq(90,190,10))+
+    theme(text = element_text(size=15)))
+
+#################################### Numerical
+library(psych)
+Norm1<-One %>% summarise("Sample size"=n(),Mean = round(mean(Baseline),1), 
+                                            Median = round(median(Baseline),1), Skewness=round(skew(Baseline,type=2),2),
+                                            "Normally distributed"=ifelse(
+                                              shapiro.test(Baseline)$p.value>0.05,
+                                              paste0("Yes (p = ",round(shapiro.test(Baseline)$p.value,4),")"),
+                                              paste0("No (p = ",round(shapiro.test(Baseline)$p.value,4),")")))
+t(Norm1)
+
+############################################# Different from 130 mg/dL?
+#################################### One-sample t-test
+(res1.1<-t.test(One$Baseline,mu=130,conf.level = 0.95))
+
+############################################# Effect size
+library(lsr)
+(effect1.1<-round(cohensD(One$Baseline,mu=130),2))
+(effect1.1_class<-ifelse(abs(effect1.1)<0.2,paste0("Negligible (d = ",effect1.1,")"),
+                      ifelse(abs(effect1.1)<0.5,paste0("Small (d = ",effect1.1,")"),
+                             ifelse(abs(effect1.1)<0.8,paste0("Moderate (d = ",effect1.1,")"),
+                                    paste0("Large (d = ",effect1.1,")")))))
+
+############################################# Sample presentation of test results
+Labels1.1<-c("Mean difference","95% CI (lower)","95% CI (upper)","p-value","Effect size")
+Stats1.1<-c(round(res1.1$estimate-130,1),round(res1.1$conf.int[1]-130,2),
+         round(res1.1$conf.int[2]-130,2),round(res1.1$p.value,3),effect1.1_class)
+(Output1.1<-data.frame(Labels1.1,Stats1.1))
+library(xlsx)
+write.xlsx(Output1.1,"C:/... file directory.../Output1.1.xlsx")
+
+############################################# What if measurement is not normally distributed?
+############################################# Different from 130 mg/dL?
+#################################### Wilcoxon test
+library(rstatix)
+(res1.2<-wilcox_test(One,Baseline~1,mu=130,conf.level = 0.95,detailed=T))
+
+############################################# Effect size
+(effect1.2<-wilcox_effsize(One,Baseline~1,mu=130))
+(eff1.2<-round(effect1.2$effsize,2))
+(effect1.2_class<-ifelse(abs(round(eff1.2,2))<0.1,paste0("Negligible (r = ",round(eff1.2,2),")"),
+                       ifelse(abs(round(eff1.2,2))<0.3,paste0("Small (r = ",round(eff1.2,2),")"),
+                              ifelse(abs(round(eff1.2,2))<0.5,paste0("Moderate (r = ",round(eff1.2,2),")"),
+                                     paste0("Large (r = ",round(eff1.2,2),")")))))
+
+############################################# Sample presentation of test results
+Labels1.2<-c("Median difference","95% CI (lower)","95% CI (upper)","p-value","Effect size")
+Stats1.2<-c(round(res1.2$estimate-130,1),round(res1.2$conf.low-130,2),
+         round(res1.2$conf.high-130,2),round(res1.2$p,3),effect1.2_class)
+(Output1.2<-data.frame(Labels1.2,Stats1.2))
+library(xlsx)
+write.xlsx(Output1.2,"C:/... file directory.../Output1.2.xlsx")
+
+
+####################################################### INDEPENDENT-SAMPLE TESTS
+library(dplyr)
+Single<-filter(Long,Time=="Baseline")
+Indep<-select(Single,ID,Gender, Baseline=Triglyceride)
+View(Indep)
+
+############################################# Checking normality
+#################################### Graphical
+library(ggplot2)
+(g<-ggplot(Indep,aes(x=Gender, y=Baseline))+stat_boxplot(geom = "errorbar")+
+    geom_boxplot()+labs(x = "", y = "Triglyceride (mg/dL)"))
+windows(20,10)
+(g1<-g+ scale_y_continuous(breaks=seq(90,190,10))+
+    theme(text = element_text(size=15)))
+
+#################################### Numerical
+library(psych)
+Norm2<-Indep %>% group_by(Gender) %>% summarise("Sample size"=n(),Mean = round(mean(Baseline),1), 
+                         Median = round(median(Baseline),1), Skewness=round(skew(Baseline,type=2),2),
+                         "Normally distributed"=ifelse(
+                           shapiro.test(Baseline)$p.value>0.05,
+                           paste0("Yes (p = ",round(shapiro.test(Baseline)$p.value,4),")"),
+                           paste0("No (p = ",round(shapiro.test(Baseline)$p.value,4),")")))
+t(Norm2)
+
+############################################# Checking homogeneity of variances
+library(car)
+leveneTest(Indep$Baseline~Indep$Gender,center=mean)
+
+############################################# Independent t-test
+(res2.1<-t.test(Indep$Baseline~Indep$Gender,conf.level = 0.95,paired=F,var.equal=T))
+
+############################################# Effect size
+library(rstatix)
+(effect2.1<-cohens_d(Indep,Baseline~Gender,paired=F))
+(eff2.1<-round(effect2.1$effsize,2))
+(effect2.1_class<-ifelse(abs(eff2.1)<0.2,paste0("Negligible (d = ",eff2.1,")"),
+                         ifelse(abs(eff2.1)<0.5,paste0("Small (d = ",eff2.1,")"),
+                                ifelse(abs(eff2.1)<0.8,paste0("Moderate (d = ",eff2.1,")"),
+                                       paste0("Large (d = ",eff2.1,")")))))
+
+############################################# Sample presentation of test results
+Labels2.1<-c("Mean difference","95% CI (lower)","95% CI (upper)","p-value","Effect size")
+Stats2.1<-c(round(res2.1$estimate[1]-res2.1$estimate[2],1),round(res2.1$conf.int[1],2),
+            round(res2.1$conf.int[2],2),round(res2.1$p.value,3),effect2.1_class)
+(Output2.1<-data.frame(Labels2.1,Stats2.1))
+library(xlsx)
+write.xlsx(Output2.1,"C:/... file directory.../Output2.1.xlsx")
+
+############################################# What if measurement is not normally distributed?
+#################################### Mann-Whitney U-test
+library(rstatix)
+(res2.2<-wilcox_test(Indep,Baseline~Gender,conf.level = 0.95,paired=F,detailed=T))
+
+############################################# Effect size
+(effect2.2<-wilcox_effsize(Indep,Baseline~Gender,paired=F))
+(eff2.2<-round(effect2.2$effsize,2))
+(effect2.2_class<-ifelse(abs(round(eff2.2,2))<0.1,paste0("Negligible (r = ",round(eff2.2,2),")"),
+                         ifelse(abs(round(eff2.2,2))<0.3,paste0("Small (r = ",round(eff2.2,2),")"),
+                                ifelse(abs(round(eff2.2,2))<0.5,paste0("Moderate (r = ",round(eff2.2,2),")"),
+                                       paste0("Large (r = ",round(eff2.2,2),")")))))
+
+############################################# Sample presentation of test results
+Labels2.2<-c("Median difference","95% CI (lower)","95% CI (upper)","p-value","Effect size")
+Stats2.2<-c(round(res2.2$estimate,1),round(res2.2$conf.low,2),
+            round(res2.2$conf.high,2),round(res2.2$p,3),effect2.2_class)
+(Output2.2<-data.frame(Labels2.2,Stats2.2))
+library(xlsx)
+write.xlsx(Output2.2,"C:/... file directory.../Output2.2.xlsx")
+
+
+####################################################### DEPENDENT-SAMPLE TESTS
+library(dplyr)
+Male<-filter(Long, Gender=="Male" & (Time == "Baseline" | Time == "1 month"))
+Dep<-select(Male,ID,Time, Triglyceride)
+View(Dep)
+
+############################################# Check normality
+#################################### Graphical
+library(ggplot2)
+(g<-ggplot(Dep,aes(x=Time, y=Triglyceride))+stat_boxplot(geom = "errorbar")+
+    geom_boxplot()+labs(x = "", y = "Triglyceride (mg/dL)"))
+Dep$Time<-factor(Dep$Time,levels=c("Baseline","1 month"))
+windows(20,10)
+(g1<-g+ scale_y_continuous(breaks=seq(90,190,10))+
+    theme(text = element_text(size=15)))
+
+#################################### Numerical
+library(psych)
+Norm3<-Dep %>% group_by(Time) %>% summarise("Sample size"=n(),Mean = round(mean(Triglyceride),1), 
+                                                Median = round(median(Triglyceride),1), Skewness=round(skew(Triglyceride,type=2),2),
+                                                "Normally distributed"=ifelse(
+                                                  shapiro.test(Triglyceride)$p.value>0.05,
+                                                  paste0("Yes (p = ",round(shapiro.test(Triglyceride)$p.value,4),")"),
+                                                  paste0("No (p = ",round(shapiro.test(Triglyceride)$p.value,4),")")))
+t(Norm3)
+
+############################################# Paired t-test
+(res3.1<-t.test(Dep$Triglyceride~Dep$Time,conf.level = 0.95,paired=T))
+
+############################################# Effect size
+library(rstatix)
+(effect3.1<-cohens_d(Dep,Triglyceride~Time,paired=T))
+(eff3.1<-round(effect3.1$effsize,2))
+(effect3.1_class<-ifelse(abs(eff3.1)<0.2,paste0("Negligible (d = ",eff3.1,")"),
+                         ifelse(abs(eff3.1)<0.5,paste0("Small (d = ",eff3.1,")"),
+                                ifelse(abs(eff3.1)<0.8,paste0("Moderate (d = ",eff3.1,")"),
+                                       paste0("Large (d = ",eff3.1,")")))))
+
+############################################# Sample presentation of test results
+Labels3.1<-c("Mean difference","95% CI (lower)","95% CI (upper)","p-value","Effect size")
+Stats3.1<-c(round(res3.1$estimate,1),round(res3.1$conf.int[1],2),
+            round(res3.1$conf.int[2],2),round(res3.1$p.value,3),effect3.1_class)
+(Output3.1<-data.frame(Labels3.1,Stats3.1))
+library(xlsx)
+write.xlsx(Output3.1,"C:/... file directory.../Output3.1.xlsx")
+
+############################################# What if measurement is not normally distributed?
+#################################### Wilcoxon test
+library(rstatix)
+(res3.2<-wilcox_test(Dep,Triglyceride~Time,conf.level = 0.95,paired=T,detailed=T))
+
+############################################# Effect size
+(effect3.2<-wilcox_effsize(Dep,Triglyceride~Time,paired=T))
+(eff3.2<-round(effect3.2$effsize,2))
+(effect3.2_class<-ifelse(abs(round(eff3.2,2))<0.1,paste0("Negligible (r = ",round(eff3.2,2),")"),
+                         ifelse(abs(round(eff3.2,2))<0.3,paste0("Small (r = ",round(eff3.2,2),")"),
+                                ifelse(abs(round(eff3.2,2))<0.5,paste0("Moderate (r = ",round(eff3.2,2),")"),
+                                       paste0("Large (r = ",round(eff3.2,2),")")))))
+
+############################################# Sample presentation of test results
+Labels3.2<-c("Median difference","95% CI (lower)","95% CI (upper)","p-value","Effect size")
+Stats3.2<-c(round(res3.2$estimate,1),round(res3.2$conf.low,2),
+            round(res3.2$conf.high,2),round(res3.2$p,3),effect3.2_class)
+(Output3.2<-data.frame(Labels3.2,Stats3.2))
+library(xlsx)
+write.xlsx(Output3.2,"C:/... file directory.../Output3.2.xlsx")
